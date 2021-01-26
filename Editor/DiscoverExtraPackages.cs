@@ -26,6 +26,7 @@ namespace PackageManagerExtraSettings
             "com.unity.build-report-inspector",
             "com.unity.cloud.userreporting",
             "com.unity.collections",
+            "com.unity.multiplayer-hlapi",
             "com.unity.connect.share",
             "com.unity.dots.editor",
             "com.unity.entities",
@@ -153,9 +154,19 @@ namespace PackageManagerExtraSettings
             {
                 // Then add results
                 var cache = m_upmCacheGetter();
-                var packages = ((IEnumerable<PackageInfo>)m_getPackageInfos.GetValue(cache));
-                var everything = m_requests.Where(s => s.Status == StatusCode.Success).SelectMany(s => s.Result).Union(packages);
-                m_setPackageInfos.Invoke(cache, new object[] { everything });
+                var packages = ((IEnumerable<PackageInfo>)m_getPackageInfos.GetValue(cache)).ToDictionary(p => p.name);
+
+                var findedHideProjects = m_requests.Where(s => s.Status == StatusCode.Success).SelectMany(s => s.Result);
+
+                foreach (var hideProject in findedHideProjects)
+                {
+                    if (!packages.ContainsKey(hideProject.name))
+                    {
+                        packages.Add(hideProject.name, hideProject);
+                    }
+                }
+
+                m_setPackageInfos.Invoke(cache, new object[] { packages.Values });
 
                 EditorApplication.update -= m_callback;
                 m_requests.Clear();
