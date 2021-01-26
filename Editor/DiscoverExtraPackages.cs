@@ -34,7 +34,6 @@ namespace PackageManagerExtraSettings
             "com.unity.immediate-window",
             "com.unity.mathematics",
             "com.unity.meshsync",
-            "com.unity.multiplayer-hlapi",
             "com.unity.package-manager-doctools",
             "com.unity.package-manager-ui",
             "com.unity.package-validation-suite",
