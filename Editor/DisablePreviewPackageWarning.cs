@@ -13,10 +13,10 @@ namespace PackageManagerExtraSettings
     {
         public static void DisableWarning(bool disableWarning)
         {
-            var prefsType = typeof(PackageManagerExtensions).Assembly.GetType("UnityEditor.PackageManager.UI.PackageManagerPrefs");
+            var prefsType =  TypeExtensions.GetTypeFromAssembly(".PackageManagerPrefs");
 
 #if UNITY_2020_2_OR_NEWER
-            var serviceContainerType = typeof(PackageManagerExtensions).Assembly.GetType("UnityEditor.PackageManager.UI.ServicesContainer");
+            var serviceContainerType = TypeExtensions.GetTypeFromAssembly(".ServicesContainer");
             var serviceContainer = serviceContainerType.BaseType.GetProperty("instance", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static).GetValue(null);
             var prefsInstance = serviceContainerType.GetMethod("Resolve").MakeGenericMethod(prefsType).Invoke(serviceContainer, null);
 #else

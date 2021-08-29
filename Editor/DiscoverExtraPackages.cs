@@ -6,11 +6,50 @@ using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
 using UnityEditor.PackageManager.UI;
+using UnityEngine;
 using Object = UnityEngine.Object;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace PackageManagerExtraSettings
 {
+    public static class TypeExtensions
+    {
+        public static Type GetTypeFromAssembly(string typeName)
+        {
+            var types = typeof(PackageManagerExtensions).Assembly.GetTypes();
+            foreach (var type in types)
+            {
+                if (type.FullName.Contains(typeName))
+                {
+                    return type;
+                }
+            }
+
+            return null;
+        }
+
+        public static PropertyInfo GetPropertyFromType(Type type, string propName)
+        {
+            foreach (var property in type.GetProperties())
+            {
+                if (property.Name.Contains(propName))
+                    return property;
+            }
+
+            return null;
+        }
+        
+        public static MethodInfo GetMethodFromType(Type type, string methodName)
+        {
+            foreach (var method in type.GetMethods())
+            {
+                if (method.Name.Contains(methodName))
+                    return method;
+            }
+            return null;
+        }
+    }
+    
     public static class DiscoverExtraPackages
     {
         static string[] m_extraPackages = new string[]
@@ -73,18 +112,22 @@ namespace PackageManagerExtraSettings
             "com.unity.xr.windowsmr.metro",
         };
 
-        static readonly Type m_cacheType = typeof(PackageManagerExtensions).Assembly.GetType("UnityEditor.PackageManager.UI.UpmCache");
-        static readonly Type m_cacheInterfaceType = typeof(PackageManagerExtensions).Assembly.GetType("UnityEditor.PackageManager.UI.IUpmCache");
-        static readonly PropertyInfo m_getPackageInfos = m_cacheType.GetProperty("searchPackageInfos") ?? m_cacheInterfaceType.GetProperty("searchPackageInfos");
-        static readonly MethodInfo m_setPackageInfos = m_cacheType.GetMethod("SetSearchPackageInfos") ?? m_cacheInterfaceType.GetMethod("SetSearchPackageInfos");
-        static readonly PropertyInfo m_operationInProgress = typeof(PackageManagerExtensions).Assembly.GetType("UnityEditor.PackageManager.UI.IOperation").GetProperty("isInProgress");
-        static readonly Type serviceContainerType = typeof(PackageManagerExtensions).Assembly.GetType("UnityEditor.PackageManager.UI.ServicesContainer");
+
+       
+        
+        
+         static readonly Type m_cacheType = TypeExtensions.GetTypeFromAssembly(".UpmCache");
+        static readonly Type m_cacheInterfaceType =  TypeExtensions.GetTypeFromAssembly(".IUpmCache");
+        static readonly PropertyInfo m_getPackageInfos =  TypeExtensions.GetPropertyFromType(m_cacheType,"searchPackageInfos") ??  TypeExtensions.GetPropertyFromType(m_cacheInterfaceType,"searchPackageInfos");
+        static readonly MethodInfo m_setPackageInfos =  TypeExtensions.GetMethodFromType(m_cacheType,"SetSearchPackageInfos") ??  TypeExtensions.GetMethodFromType(m_cacheInterfaceType,"SetSearchPackageInfos");
+        static readonly PropertyInfo m_operationInProgress =  TypeExtensions.GetPropertyFromType( TypeExtensions.GetTypeFromAssembly(".IOperation"), "isInProgress");
+        static readonly Type serviceContainerType =  TypeExtensions.GetTypeFromAssembly(".ServicesContainer");
         static readonly Func<object> m_serviceContainerGetter = (Func<object>)serviceContainerType?.BaseType.GetProperty("instance", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static).GetGetMethod().CreateDelegate(typeof(Func<object>));
         static readonly Func<object> m_upmCacheGetter = CreateUpmCacheGetter();
-
+        
         static readonly EditorApplication.CallbackFunction m_callback = OnProgress;
         static readonly List<SearchRequest> m_requests = new List<SearchRequest>(32);
-
+        
         static object m_searchAllOperation;
         static Delegate m_eventHandler;
 
@@ -99,8 +142,9 @@ namespace PackageManagerExtraSettings
 
         public static void EnableHook(bool enable)
         {
+
             // Hook package manager SearchAll operation
-            var clientType = typeof(PackageManagerExtensions).Assembly.GetType("UnityEditor.PackageManager.UI.UpmClient");
+            var clientType = TypeExtensions.GetTypeFromAssembly(".UpmClient");
 #if UNITY_2020_2_OR_NEWER
             var instance = serviceContainerType.GetMethod("Resolve").MakeGenericMethod(clientType).Invoke(m_serviceContainerGetter(), null);
 #else
@@ -125,28 +169,28 @@ namespace PackageManagerExtraSettings
                 evnt.RemoveEventHandler(instance, m_eventHandler);
             }
         }
-
+        
         static void OnSearchAll(object operation)
         {
             if (ExtraSettingsProvider.ShowHiddenPackages)
             {
                 m_searchAllOperation = operation;
-
+        
                 // Clear requests, in case any searches are running, they will finish without doing anything
                 m_requests.Clear();
-
+        
                 // Kick off searching
                 foreach (var id in m_extraPackages)
                 {
                     m_requests.Add(Client.Search(id));
                 }
-
+        
                 // Re-register update callback
                 EditorApplication.update -= m_callback;
                 EditorApplication.update += m_callback;
             }
         }
-
+        
         private static void OnProgress()
         {
             // Wait for all requests to complete and for SearchAll opeartion to finish
@@ -155,9 +199,9 @@ namespace PackageManagerExtraSettings
                 // Then add results
                 var cache = m_upmCacheGetter();
                 var packages = ((IEnumerable<PackageInfo>)m_getPackageInfos.GetValue(cache)).ToDictionary(p => p.name);
-
+        
                 var findedHideProjects = m_requests.Where(s => s.Status == StatusCode.Success).SelectMany(s => s.Result);
-
+        
                 foreach (var hideProject in findedHideProjects)
                 {
                     if (!packages.ContainsKey(hideProject.name))
@@ -165,9 +209,9 @@ namespace PackageManagerExtraSettings
                         packages.Add(hideProject.name, hideProject);
                     }
                 }
-
+        
                 m_setPackageInfos.Invoke(cache, new object[] { packages.Values });
-
+        
                 EditorApplication.update -= m_callback;
                 m_requests.Clear();
                 m_searchAllOperation = null;
