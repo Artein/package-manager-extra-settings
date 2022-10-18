@@ -209,8 +209,14 @@ namespace PackageManagerExtraSettings
                         packages.Add(hideProject.name, hideProject);
                     }
                 }
-        
+                
+#if UNITY_2021_1_OR_NEWER
+                // SetSearchPackageInfos(IEnumerable<PackageInfo> packageInfos, long timestamp)
+                m_setPackageInfos.Invoke(cache, new object[] { packages.Values, DateTime.Now.Ticks });
+#else
+                // SetSearchPackageInfos(IEnumerable<PackageInfo> packageInfos)
                 m_setPackageInfos.Invoke(cache, new object[] { packages.Values });
+#endif
         
                 EditorApplication.update -= m_callback;
                 m_requests.Clear();
