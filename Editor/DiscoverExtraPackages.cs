@@ -111,12 +111,8 @@ namespace PackageManagerExtraSettings
             "com.unity.xr.interactionsubsystems",
             "com.unity.xr.windowsmr.metro",
         };
-
-
-       
         
-        
-         static readonly Type m_cacheType = TypeExtensions.GetTypeFromAssembly(".UpmCache");
+        static readonly Type m_cacheType = TypeExtensions.GetTypeFromAssembly(".UpmCache");
         static readonly Type m_cacheInterfaceType =  TypeExtensions.GetTypeFromAssembly(".IUpmCache");
         static readonly PropertyInfo m_getPackageInfos =  TypeExtensions.GetPropertyFromType(m_cacheType,"searchPackageInfos") ??  TypeExtensions.GetPropertyFromType(m_cacheInterfaceType,"searchPackageInfos");
         static readonly MethodInfo m_setPackageInfos =  TypeExtensions.GetMethodFromType(m_cacheType,"SetSearchPackageInfos") ??  TypeExtensions.GetMethodFromType(m_cacheInterfaceType,"SetSearchPackageInfos");
@@ -134,7 +130,7 @@ namespace PackageManagerExtraSettings
         static Func<object> CreateUpmCacheGetter()
         {
 #if UNITY_2020_2_OR_NEWER
-        return (Func<object>)serviceContainerType.GetMethod("Resolve").MakeGenericMethod(m_cacheType).CreateDelegate(typeof(Func<object>), m_serviceContainerGetter());
+            return (Func<object>)serviceContainerType.GetMethod("Resolve").MakeGenericMethod(m_cacheType).CreateDelegate(typeof(Func<object>), m_serviceContainerGetter());
 #else
             return (Func<object>)m_cacheType.GetProperty("instance").GetGetMethod().CreateDelegate(typeof(Func<object>));
 #endif
@@ -142,7 +138,6 @@ namespace PackageManagerExtraSettings
 
         public static void EnableHook(bool enable)
         {
-
             // Hook package manager SearchAll operation
             var clientType = TypeExtensions.GetTypeFromAssembly(".UpmClient");
 #if UNITY_2020_2_OR_NEWER
@@ -150,27 +145,28 @@ namespace PackageManagerExtraSettings
 #else
             var instance = clientType.GetProperty("instance", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static).GetValue(null) as Object;
 #endif
-            var evnt = instance.GetType().GetEvent("onSearchAllOperation");
+            var eventInfo = instance.GetType().GetEvent("onSearchAllOperation");
             bool handlerExists = m_eventHandler != null;
             if (!handlerExists)
             {
-                m_eventHandler = Delegate.CreateDelegate(evnt.EventHandlerType, new Action<object>(OnSearchAll).Method);
+                m_eventHandler = Delegate.CreateDelegate(eventInfo.EventHandlerType, new Action<object>(OnSearchAll).Method);
             }
+            
             if (enable)
             {
                 if (handlerExists)
                 {
-                    evnt.RemoveEventHandler(instance, m_eventHandler);
+                    eventInfo.RemoveEventHandler(instance, m_eventHandler);
                 }
-                evnt.AddEventHandler(instance, m_eventHandler);
+                eventInfo.AddEventHandler(instance, m_eventHandler);
             }
             else
             {
-                evnt.RemoveEventHandler(instance, m_eventHandler);
+                eventInfo.RemoveEventHandler(instance, m_eventHandler);
             }
         }
-        
-        static void OnSearchAll(object operation)
+
+        private static void OnSearchAll(object operation)
         {
             if (ExtraSettingsProvider.ShowHiddenPackages)
             {
@@ -193,16 +189,16 @@ namespace PackageManagerExtraSettings
         
         private static void OnProgress()
         {
-            // Wait for all requests to complete and for SearchAll opeartion to finish
+            // Wait for all requests to complete and for SearchAll operation to finish
             if (m_requests.All(s => s.IsCompleted) && !(bool)m_operationInProgress.GetValue(m_searchAllOperation))
             {
                 // Then add results
                 var cache = m_upmCacheGetter();
                 var packages = ((IEnumerable<PackageInfo>)m_getPackageInfos.GetValue(cache)).ToDictionary(p => p.name);
         
-                var findedHideProjects = m_requests.Where(s => s.Status == StatusCode.Success).SelectMany(s => s.Result);
+                var foundHiddenProjects = m_requests.Where(s => s.Status == StatusCode.Success).SelectMany(s => s.Result);
         
-                foreach (var hideProject in findedHideProjects)
+                foreach (var hideProject in foundHiddenProjects)
                 {
                     if (!packages.ContainsKey(hideProject.name))
                     {
